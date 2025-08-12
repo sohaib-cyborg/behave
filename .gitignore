@@ -1,0 +1,46 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.env/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VS Code settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Data and output files
+*.csv
+*.log
+
+# Hugging Face cache
+~/.cache/huggingface/
+.cache/
+huggingface/
+
+# Credentials and tokens
+*.env
+*.secret
+*.token
+
+# pytest cache
+.pytest_cache/
+
+# Ignore requirements lock files
+poetry.lock
+Pipfile.lock

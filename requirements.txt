@@ -1,0 +1,12 @@
+pandas
+numpy
+scikit-learn
+yfinance
+praw>=7.8.1
+nltk
+transformers
+requests
+aiohttp
+ccxt
+# If using torch-based transformers locally, uncomment the next line:
+# torch
