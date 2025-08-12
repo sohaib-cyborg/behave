@@ -18,9 +18,9 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 # Reddit API credentials (from step above)
-REDDIT_CLIENT_ID = "S5buERAWOEK9iZ6kMSwJ2A"
-REDDIT_CLIENT_SECRET = "iyLoeMJ_bNEc6rPP1DGZun4T1v0hlA"
-REDDIT_USER_AGENT = "Interesting_Plane599"
+REDDIT_CLIENT_ID = ""
+REDDIT_CLIENT_SECRET = ""
+REDDIT_USER_AGENT = ""
 
 nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
@@ -175,7 +175,7 @@ emotion_to_bias = {
 #     device=-1
 # )
 
-HF_API_TOKEN = "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"  
+HF_API_TOKEN = ""  
 
 def hf_emotion_inference(text):
     if not text or not text.strip():
