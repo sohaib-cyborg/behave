@@ -309,65 +309,6 @@ def train_models(coin_symbol, start_date, end_date,df_his: pd.DataFrame):
         "log_reg": log_reg,
         "rf": rf
     }
-
-def predict_trade_signal(coin_symbol, models, df_his: pd.DataFrame, symbol: str):
-    bias_df = get_daily_bias(fetch_post_for_one_month())
-    start = bias_df["date"].min()
-    end = bias_df["date"].max()
-    twitter_df = fetch_and_analyze(coin_symbol.split('/')[0], coin_symbol.split('/')[0], max_tweets=100, start_date=start, end_date=end)
-    current_df = merge_price_bias_twitter_posts(
-        asyncio.run(main(coin_symbol, start, end)),
-        bias_df,
-        twitter_df
-    )
-    current_df = compute_similarity(df_his, current_df)
-    current_df = add_irrationality_logic(current_df)
-
-    features = ["price", "volume", "similarity_score", "irrationality_index", "emotional_pulse_score", "twitter_sentiment_score"]  # <-- Add twitter_sentiment_score
-    X = current_df[features]
-    X_scaled = models["scaler"].transform(X)
-
-    # 1️⃣ Predictions
-    log_probs = models["log_reg"].predict_proba(X_scaled)
-    rf_probs = models["rf"].predict_proba(X_scaled)
-    kmeans_pred = models["kmeans"].predict(X_scaled)
-
-    # 2️⃣ Average ensemble probabilities (only log_reg + rf have probabilities)
-    avg_probs = (log_probs + rf_probs) / 2
-    best_class = np.argmax(avg_probs, axis=1)[0]
-    confidence = float(np.max(avg_probs, axis=1)[0])
-
-    if kmeans_pred[0] == best_class:
-        confidence = min(1.0, confidence + 0.1)  # boost
-    else:
-        confidence = max(0.0, confidence - 0.1)  # reduce
-    # Map cluster to signal
-    cluster_to_signal = {
-        0: "BUY",
-        1: "SELL",
-        2: "HOLD"
-    }
-    signal = cluster_to_signal.get(best_class, 2)
-    if confidence < 0.6:
-        contrarian = current_df["contrarian_suggestion"].iloc[0]
-        if "SELL" in contrarian:
-            signal = 1
-        elif "BUY" in contrarian:
-            signal = 0
-        else:
-            signal = 2
-
-    return {
-        "symbol": symbol,
-        "signal": signal,
-        "source": "behavioral_analysis",
-        "confidence": float(confidence),
-        "timestamp": datetime.now(),
-        "metadata": {
-            "predicted_cluster": int(best_class),
-            "probabilities": avg_probs[0].tolist()
-        }
-    }
     
 def compute_similarity(historical_df: pd.DataFrame, current_df: pd.DataFrame):
     
