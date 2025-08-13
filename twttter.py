@@ -175,42 +175,6 @@ def fetch_and_analyze(coin_name: str, ticker: str, max_tweets: int = 100, start_
         })
     return pd.DataFrame(data)
 
-def aggregate_sentiment(df: pd.DataFrame):
-    """
-    Aggregates the sentiment scores from a DataFrame of analyzed tweets.
-    Returns a dictionary with the overall sentiment and confidence score.
-    """
-    if df.empty:
-        return {"overall_sentiment": "NEUTRAL", "overall_confidence": 0.0}
-
-    label_map = {"BULLISH": 1, "NEUTRAL": 0, "BEARISH": -1}
-    df['numeric_label'] = df['label'].map(label_map)
-
-    df['weighted_score'] = df['numeric_label'] * df['score']
-
-    total_weighted_score = df['weighted_score'].sum()
-    total_confidence = df['score'].sum()
-
-    if total_confidence == 0:
-        return {"overall_sentiment": "NEUTRAL", "overall_confidence": 0.0}
-
-    aggregated_score = total_weighted_score / total_confidence
-
-    # Define thresholds for sentiment classification
-    if aggregated_score > 0.1:
-        overall_sentiment = "BULLISH"
-    elif aggregated_score < -0.1:
-        overall_sentiment = "BEARISH"
-    else:
-        overall_sentiment = "NEUTRAL"
-
-    overall_confidence = abs(aggregated_score)
-
-    return {
-        "overall_sentiment": overall_sentiment,
-        "overall_confidence": overall_confidence
-    }
-
 # Example usage
 if __name__ == "__main__":
     # Example 1: Fetching recent tweets using the default method
@@ -219,10 +183,6 @@ if __name__ == "__main__":
     print("Per-tweet sentiment analysis:")
     if not df_recent.empty:
         print(df_recent.head())
-        aggregated_result_recent = aggregate_sentiment(df_recent)
-        print("\nOverall aggregated sentiment:")
-        print(f"Sentiment: {aggregated_result_recent['overall_sentiment']}")
-        print(f"Confidence: {aggregated_result_recent['overall_confidence']:.4f}")
     else:
         print("No tweets found for this example.")
 
@@ -237,10 +197,6 @@ if __name__ == "__main__":
     print("Per-tweet sentiment analysis:")
     if not df_range.empty:
         print(df_range.head())
-        aggregated_result_range = aggregate_sentiment(df_range)
-        print("\nOverall aggregated sentiment:")
-        print(f"Sentiment: {aggregated_result_range['overall_sentiment']}")
-        print(f"Confidence: {aggregated_result_range['overall_confidence']:.4f}")
     else:
         print("No tweets found for this date range.")
 
@@ -258,10 +214,6 @@ if __name__ == "__main__":
         print("Per-tweet sentiment analysis:")
         if not df_all.empty:
             print(df_all.head())
-            aggregated_result_all = aggregate_sentiment(df_all)
-            print("\nOverall aggregated sentiment:")
-            print(f"Sentiment: {aggregated_result_all['overall_sentiment']}")
-            print(f"Confidence: {aggregated_result_all['overall_confidence']:.4f}")
         else:
             print("No tweets found for this historical range.")
     except Exception as e:
