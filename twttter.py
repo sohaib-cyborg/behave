@@ -55,9 +55,9 @@ sentiment_analyzer = pipeline(
 
 def fetch_tweets_in_range(coin_name: str, ticker: str, max_tweets: int, start_date: datetime, end_date: datetime):
     """
-    Helper function to fetch tweets within a specified date range.
+    Helper function to fetch tweets within a specified date range using search_recent_tweets.
     It works by iteratively calling search_recent_tweets and moving the end date back
-    until the start date is reached.
+    until the start date is reached. This is a workaround for the 7-day lookback limit.
     """
     query = " OR ".join(generate_coin_queries(coin_name, ticker))
     query += " -is:retweet lang:en"
@@ -68,15 +68,14 @@ def fetch_tweets_in_range(coin_name: str, ticker: str, max_tweets: int, start_da
     while current_end_time > start_date and len(all_tweets) < max_tweets:
         print(f"Fetching tweets up to {current_end_time.isoformat()}...")
         # search_recent_tweets only supports fetching up to 100 tweets per call.
-        # It also has a 7-day lookback window, meaning `end_time` must be in the last 7 days.
-        # This function simulates a longer history search by manually iterating.
+        # It also has a 7-day lookback window. This function simulates a longer history search.
         response = client.search_recent_tweets(
             query=query,
             max_results=min(max_tweets - len(all_tweets), 100),
             end_time=current_end_time,
             tweet_fields=["created_at"]
         )
-        
+
         tweets = response.data or []
         all_tweets.extend(tweets)
 
@@ -92,48 +91,73 @@ def fetch_tweets_in_range(coin_name: str, ticker: str, max_tweets: int, start_da
 
     return all_tweets
 
+def fetch_tweets(coin_name: str, ticker: str, max_tweets: int, start_date: str = None, end_date: str = None, use_all_tweets: bool = False):
+    """
+    Wrapper function to fetch tweets using either search_recent_tweets or search_all_tweets.
+    
+    Args:
+        coin_name (str): The full name of the cryptocurrency.
+        ticker (str): The ticker symbol of the cryptocurrency.
+        max_tweets (int): The maximum number of tweets to fetch.
+        start_date (str, optional): The start date in ISO format. Required for search_all_tweets.
+        end_date (str, optional): The end date in ISO format.
+        use_all_tweets (bool, optional): If True, uses the search_all_tweets method.
+                                        This requires a higher API access level. Defaults to False.
 
-def fetch_and_analyze(coin_name: str, ticker: str, max_tweets: int = 100, start_date: str = None, end_date: str = None):
+    Returns:
+        list: A list of tweepy.Tweet objects.
+    """
+    query = " OR ".join(generate_coin_queries(coin_name, ticker))
+    query += " -is:retweet lang:en"
+
+    # Convert date strings to datetime objects if provided
+    start_dt = datetime.fromisoformat(start_date) if start_date else None
+    end_dt = datetime.fromisoformat(end_date) if end_date else None
+
+    # Logic for `search_all_tweets`
+    if use_all_tweets:
+        if not start_dt or not end_dt:
+            raise ValueError("search_all_tweets requires both start_date and end_date.")
+        print("Using search_all_tweets for historical data...")
+        # Note: search_all_tweets requires a higher API access level (e.g., Academic Research or Enterprise)
+        response = client.search_all_tweets(
+            query=query,
+            start_time=start_dt,
+            end_time=end_dt,
+            max_results=min(max_tweets, 500), # search_all_tweets max_results is 500
+            tweet_fields=["created_at"]
+        )
+        return response.data or []
+
+    # Logic for `search_recent_tweets` (default)
+    else:
+        if start_dt and end_dt:
+            # Use the iterative helper function for a date range with the recent search endpoint
+            print("Using iterative search_recent_tweets for historical data.")
+            return fetch_tweets_in_range(coin_name, ticker, max_tweets, start_dt, end_dt)
+        elif end_dt:
+            # Use a single recent search up to the provided end date
+            print("Using a single search_recent_tweets up to a specified end date.")
+            response = client.search_recent_tweets(
+                query=query,
+                max_results=max_tweets,
+                end_time=end_dt,
+                tweet_fields=["created_at"]
+            )
+            return response.data or []
+        else:
+            # Default behavior: fetch recent tweets without a specific date range
+            print("Using default search_recent_tweets for the last 7 days.")
+            response = client.search_recent_tweets(query=query, max_results=max_tweets)
+            return response.data or []
+
+def fetch_and_analyze(coin_name: str, ticker: str, max_tweets: int = 100, start_date: str = None, end_date: str = None, use_all_tweets: bool = False):
     """
     Fetches tweets, performs sentiment analysis, and returns a DataFrame.
-    Can now handle a date range using the start_date and end_date parameters.
+    This function now uses the fetch_tweets wrapper to handle different search methods.
     """
-    if start_date and not end_date:
-        raise ValueError("If start_date is provided, end_date must also be provided.")
-    if end_date and not start_date:
-        # If only end_date is provided, we fetch recent tweets up to that time.
-        # Note: The end_date must be within the last 7 days for the search_recent_tweets API.
-        end_dt = datetime.fromisoformat(end_date)
-        if end_dt.date() < (datetime.now() - timedelta(days=7)).date():
-            print("Warning: `end_date` must be within the last 7 days for a single search.")
-
-        query = " OR ".join(generate_coin_queries(coin_name, ticker))
-        query += " -is:retweet lang:en"
-
-        params = {
-            "query": query,
-            "max_results": max_tweets,
-            "end_time": end_dt
-        }
-        
-        response = client.search_recent_tweets(**params)
-        tweets = response.data or []
-    elif start_date and end_date:
-        # If both dates are provided, use the new helper function for the range
-        try:
-            start_dt = datetime.fromisoformat(start_date)
-            end_dt = datetime.fromisoformat(end_date)
-        except ValueError:
-            raise ValueError("Dates must be in ISO format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS")
-        
-        tweets = fetch_tweets_in_range(coin_name, ticker, max_tweets, start_dt, end_dt)
-        print(f"Total tweets fetched for the range: {len(tweets)}")
-    else:
-        # Default behavior: fetch recent tweets without a specific date range
-        query = " OR ".join(generate_coin_queries(coin_name, ticker))
-        query += " -is:retweet lang:en"
-        response = client.search_recent_tweets(query=query, max_results=max_tweets)
-        tweets = response.data or []
+    tweets = fetch_tweets(coin_name=coin_name, ticker=ticker, max_tweets=max_tweets,
+                          start_date=start_date, end_date=end_date, use_all_tweets=use_all_tweets)
 
     if not tweets:
         print("No tweets found.")
@@ -189,9 +213,9 @@ def aggregate_sentiment(df: pd.DataFrame):
 
 # Example usage
 if __name__ == "__main__":
-    # Example 1: Fetching recent tweets with an end date
-    print("--- Example 1: Fetching recent tweets up to a specific date ---")
-    df_recent = fetch_and_analyze("Ethereum", "ETH", max_tweets=50, end_date="2025-08-12T00:00:00")
+    # Example 1: Fetching recent tweets using the default method
+    print("--- Example 1: Fetching recent tweets using the default method ---")
+    df_recent = fetch_and_analyze("Ethereum", "ETH", max_tweets=50)
     print("Per-tweet sentiment analysis:")
     if not df_recent.empty:
         print(df_recent.head())
@@ -204,12 +228,9 @@ if __name__ == "__main__":
 
     print("\n" + "="*50 + "\n")
 
-    # Example 2: Fetching tweets over a historical date range
-    print("--- Example 2: Fetching tweets over a historical date range ---")
-    # Note: For this to work with Twitter's API, the start_date and end_date
-    # must be within the last 7 days for the `search_recent_tweets` endpoint.
-    # The helper function simulates a longer search, but the API itself
-    # has this inherent limitation.
+    # Example 2: Fetching tweets over a historical date range using the default method
+    print("--- Example 2: Fetching tweets over a historical date range using the default method ---")
+    # This will use the iterative helper function
     start = (datetime.now() - timedelta(days=3)).isoformat()
     end = datetime.now().isoformat()
     df_range = fetch_and_analyze("Bitcoin", "BTC", max_tweets=150, start_date=start, end_date=end)
@@ -222,3 +243,26 @@ if __name__ == "__main__":
         print(f"Confidence: {aggregated_result_range['overall_confidence']:.4f}")
     else:
         print("No tweets found for this date range.")
+
+    print("\n" + "="*50 + "\n")
+
+    # Example 3: Fetching historical tweets using the search_all_tweets method
+    # NOTE: This requires a higher API access tier, so it may not work with
+    # a standard developer account.
+    print("--- Example 3: Fetching historical tweets using search_all_tweets ---")
+    # Using a hypothetical historical range
+    start_historical = (datetime.now() - timedelta(days=10)).isoformat()
+    end_historical = (datetime.now() - timedelta(days=8)).isoformat()
+    try:
+        df_all = fetch_and_analyze("Dogecoin", "DOGE", max_tweets=200, start_date=start_historical, end_date=end_historical, use_all_tweets=True)
+        print("Per-tweet sentiment analysis:")
+        if not df_all.empty:
+            print(df_all.head())
+            aggregated_result_all = aggregate_sentiment(df_all)
+            print("\nOverall aggregated sentiment:")
+            print(f"Sentiment: {aggregated_result_all['overall_sentiment']}")
+            print(f"Confidence: {aggregated_result_all['overall_confidence']:.4f}")
+        else:
+            print("No tweets found for this historical range.")
+    except Exception as e:
+        print(f"Could not use search_all_tweets. Please ensure you have the correct API access level. Error: {e}")
