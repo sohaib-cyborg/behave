@@ -273,7 +273,7 @@ def add_irrationality_logic(df: pd.DataFrame):
     df["risk_adjustment_level"] = df["irrationality_index"].apply(risk_level)
 
     return df
-def qtrain_models(coin_symbol, start_date, end_date,df_his: pd.DataFrame):
+def train_models(coin_symbol, start_date, end_date,df_his: pd.DataFrame):
   
     train_df = merge_price_bias_posts(asyncio.run(main(coin_symbol, start_date, end_date)), get_daily_bias(fetch_reddit_posts(start_date, end_date)))
     train_df = compute_similarity(df_his, train_df)
