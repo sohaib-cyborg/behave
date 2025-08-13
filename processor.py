@@ -18,11 +18,12 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from twitter_sentiments import fetch_and_analyze  # <-- Add this import
+import os
 
 # Reddit API credentials (from step above)
-REDDIT_CLIENT_ID = ""
-REDDIT_CLIENT_SECRET = ""
-REDDIT_USER_AGENT = ""
+REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID") or ""
+REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET") or ""
+REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT") or ""
 
 nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
@@ -177,7 +178,7 @@ emotion_to_bias = {
 #     device=-1
 # )
 
-HF_API_TOKEN = ""  
+HF_API_TOKEN = os.getenv("HF_TOKEN")
 
 def hf_emotion_inference(text):
     if not text or not text.strip():
@@ -275,41 +276,7 @@ def add_irrationality_logic(df: pd.DataFrame):
     df["risk_adjustment_level"] = df["irrationality_index"].apply(risk_level)
 
     return df
-def train_models(coin_symbol, start_date, end_date,df_his: pd.DataFrame):
-  
-    # Fetch Twitter sentiment data for the same date range
-    twitter_df = fetch_and_analyze(coin_symbol.split('/')[0], coin_symbol.split('/')[0], max_tweets=100, start_date=start_date, end_date=end_date)
-    train_df = merge_price_bias_twitter_posts(
-        asyncio.run(main(coin_symbol, start_date, end_date)),
-        get_daily_bias(fetch_reddit_posts(start_date, end_date)),
-        twitter_df
-    )
-    train_df = compute_similarity(df_his, train_df)
-    train_df = add_irrationality_logic(train_df)
 
-    features = ["price", "volume", "similarity_score", "irrationality_index", "emotional_pulse_score", "twitter_sentiment_score"]  # <-- Add twitter_sentiment_score
-
-    X = train_df[features]
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    # Step 1: KMeans to generate pseudo-labels
-    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    pseudo_labels = kmeans.fit_predict(X_scaled)
-
-    # Step 2: Train Logistic Regression & RandomForest
-    log_reg = LogisticRegression(max_iter=500, random_state=42)
-    log_reg.fit(X_scaled, pseudo_labels)
-
-    rf = RandomForestClassifier(n_estimators=200, random_state=42)
-    rf.fit(X_scaled, pseudo_labels)
-    return {
-        "scaler": scaler,
-        "kmeans": kmeans,
-        "log_reg": log_reg,
-        "rf": rf
-    }
-    
 def compute_similarity(historical_df: pd.DataFrame, current_df: pd.DataFrame):
     
     # One-hot encode bias
