@@ -5,8 +5,8 @@ import os
 from datetime import datetime, timedelta
 
 class TwitterSentimentClient:
-    def __init__(self, bearer_token):
-        self.client = tweepy.Client(bearer_token=bearer_token)
+    def __init__(self):
+        self.client = tweepy.Client(bearer_token=os.getenv('BEARER_TOKEN'))
         self.sentiment_analyzer = pipeline(
             "sentiment-analysis",
             model="StephanAkkerman/FinTwitBERT-sentiment"
@@ -95,8 +95,7 @@ class TwitterSentimentClient:
         return pd.DataFrame(data)
 
 # Instantiate and use the client
-bearer_token = os.environ.get('BEARER_TOKEN') or "YOUR_BEARER_TOKEN_HERE"
-twitter_client = TwitterSentimentClient(bearer_token)
+twitter_client = TwitterSentimentClient()
 
 if __name__ == "__main__":
     df = twitter_client.fetch_and_analyze("Ethereum", "ETH", max_tweets=50)
