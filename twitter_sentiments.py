@@ -151,11 +151,16 @@ def fetch_tweets(coin_name: str, ticker: str, max_tweets: int, start_date: str =
             response = client.search_recent_tweets(query=query, max_results=max_tweets)
             return response.data or []
 
-def fetch_and_analyze(coin_name: str, ticker: str, max_tweets: int = 100, start_date: str = None, end_date: str = None, use_all_tweets: bool = False):
+def fetch_and_analyze(coin_name: str, ticker: str, max_tweets: int = 100, start_date: str = None, end_date: str = None, use_all_tweets: bool = False, mock=True):
     """
     Fetches tweets, performs sentiment analysis, and returns a DataFrame.
     This function now uses the fetch_tweets wrapper to handle different search methods.
     """
+
+    if mock:
+        pd.read_csv("mock_5000_bitcoin_tweets_1month.csv")
+        return pd.DataFrame(columns=["text", "label", "score","created_at"])
+
     tweets = fetch_tweets(coin_name=coin_name, ticker=ticker, max_tweets=max_tweets,
                           start_date=start_date, end_date=end_date, use_all_tweets=use_all_tweets)
 
