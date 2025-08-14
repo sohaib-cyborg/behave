@@ -12,7 +12,6 @@ venv/
 .ipynb_checkpoints
 
 # VS Code settings
-.vscode/
 
 # OS files
 .DS_Store
@@ -44,3 +43,5 @@ huggingface/
 # Ignore requirements lock files
 poetry.lock
 Pipfile.lock
+config.bat
+node_modules
