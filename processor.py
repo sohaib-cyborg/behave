@@ -17,9 +17,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from twitter_sentiments import fetch_and_analyze  # <-- Add this import
+from twitter_client import TwitterClient  # <-- Add this import
+from sentiment_client import SentimentClient  # <-- Add this import
 import os
 
+
+twit_client = TwitterClient()
+sent_client = SentimentClient()
 # Reddit API credentials (from step above)
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID") or ""
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET") or ""
@@ -318,9 +322,14 @@ def merge_price_bias_twitter_posts(bias_df, coin_df, twitter_df):
         merged['twitter_sentiment_score'] = 0.5  # Default neutral
     return merged
 
-def train_models(coin_symbol, start_date, end_date, df_his: pd.DataFrame):
+def get_analyzed_tweets(coin_symbol, start_date, end_date):
     # Fetch Twitter sentiment data for the same date range
-    twitter_df = fetch_and_analyze(coin_symbol.split('/')[0], coin_symbol.split('/')[0], max_tweets=100, start_date=start_date, end_date=end_date)
+    tweeets_to_analyze = twit_client.fetch_tweets(coin_symbol.split('/')[0], coin_symbol.split('/')[0], max_tweets=100, start_date=start_date, end_date=end_date)
+    twitter_df = sent_client.analyze_tweets(tweeets_to_analyze)
+    return twitter_df
+
+def train_models(coin_symbol, start_date, end_date, df_his: pd.DataFrame):
+    twitter_df = get_analyzed_tweets(coin_symbol, start_date, end_date)
     train_df = merge_price_bias_twitter_posts(
         asyncio.run(main(coin_symbol, start_date, end_date)),
         get_daily_bias(fetch_reddit_posts(start_date, end_date)),
@@ -356,7 +365,7 @@ def predict_trade_signal(coin_symbol, models, df_his: pd.DataFrame, symbol: str)
     bias_df = get_daily_bias(fetch_post_for_one_month())
     start = bias_df["date"].min()
     end = bias_df["date"].max()
-    twitter_df = fetch_and_analyze(coin_symbol.split('/')[0], coin_symbol.split('/')[0], max_tweets=100, start_date=start, end_date=end)
+    twitter_df = get_analyzed_tweets(coin_symbol, start, end)
     current_df = merge_price_bias_twitter_posts(
         asyncio.run(main(coin_symbol, start, end)),
         bias_df,
